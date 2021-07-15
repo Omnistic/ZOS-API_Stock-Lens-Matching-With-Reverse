@@ -7,6 +7,7 @@ using ZOSAPI.Editors.LDE;
 using ZOSAPI.Tools.General;
 using ZOSAPI.Editors;
 using ZOSAPI.Tools.Optimization;
+using ZOSAPI.Tools;
 
 namespace CSharpUserExtensionApplication
 {
@@ -72,10 +73,11 @@ namespace CSharpUserExtensionApplication
 			if (!TheApplication.TerminateRequested) // This will be 'true' if the user clicks on the Cancel button
             {
                 string current_line, vendors_string, current_material, temporary_progress_message;
-                double focal_length, epd, thickness_after, nominal_mf, current_mf;
-                int match_count, total_count;
+                double focal_length, epd, thickness_after, nominal_mf, current_mf, max_wavelength, min_wavelength, current_wavelength;
+                int match_count, total_count, number_of_wavelengths;
                 List<int> valid_optimization_cycles = new List<int> { 0, 1, 5, 10, 50 };
                 ILensCatalogs TheLensCatalog;
+                IMaterialsCatalog TheMaterialsCatalog;
                 ILensCatalogLens MatchedLens;
                 ISolveData thickness_solve;
                 bool combinations = true;
@@ -186,6 +188,26 @@ namespace CSharpUserExtensionApplication
                 Console.WriteLine("> Finding lenses ...");
                 Console.WriteLine();
 
+                // Retrieve maximum, and minimum wavelengths (used later to check if a matched lens material is compatible)
+                max_wavelength = double.NegativeInfinity;
+                min_wavelength = double.PositiveInfinity;
+                number_of_wavelengths = TheSystem.SystemData.Wavelengths.NumberOfWavelengths;
+
+                for (int ii = 1; ii <= number_of_wavelengths; ii++)
+                {
+                    current_wavelength = TheSystem.SystemData.Wavelengths.GetWavelength(ii).Wavelength;
+
+                    if (current_wavelength > max_wavelength)
+                    {
+                        max_wavelength = current_wavelength;
+                    }
+
+                    if (current_wavelength < min_wavelength)
+                    {
+                        min_wavelength = TheSystem.SystemData.Wavelengths.GetWavelength(ii).Wavelength;
+                    }
+                }
+                
                 // Lens data editor
                 ILensDataEditor TheLDE = TheSystem.LDE;
 
@@ -431,6 +453,7 @@ namespace CSharpUserExtensionApplication
 
                 // Flag erroneous insertions
                 bool insertion_error = false;
+                bool material_error = false;
 
                 // Array of best matches for each nominal lens
                 object[,,] best_matches = new object[lens_count, matches, 6];
@@ -523,82 +546,104 @@ namespace CSharpUserExtensionApplication
                             // Close the lens catalog tool
                             TheLensCatalog.Close();
 
+                            // Check that material is within wavelength bounds (has to be done after closing the lens catalog)
+                            for (int material_id = 0; material_id < element_count; material_id++)
+                            {
+                                // Material of every element of the lens
+                                current_material = TheSystemCopy.LDE.GetSurfaceAt(lens_start + material_id).Material;
+
+                                // Open the material catalog
+                                TheMaterialsCatalog = TheSystemCopy.Tools.OpenMaterialsCatalog();
+
+                                if (!MaterialIsCompatible(TheMaterialsCatalog, current_material, max_wavelength, min_wavelength))
+                                {
+                                    total_count--;
+                                    material_error = true;
+                                }
+
+                                // Close the material catalog
+                                TheMaterialsCatalog.Close();
+                            }
+
                             // Update progress
-                            TheApplication.ProgressPercent = 10 + 60 / lens_count * (lens_id + 1);
+                            TheApplication.ProgressPercent = 10 + 60 * (lens_id*vendors.Length*match_count + vendor_id*match_count + match_id) / (lens_count*vendors.Length + vendors.Length*match_count + match_count);
                             temporary_progress_message = "Lens " + (lens_id + 1).ToString() + "/" + lens_count.ToString();
                             temporary_progress_message += " | Vendor " + (vendor_id + 1).ToString() + "/" + (vendors.Length).ToString();
                             temporary_progress_message += " | Match " + (match_id + 1).ToString() + "/" + (match_count).ToString();
                             TheApplication.ProgressMessage = temporary_progress_message;
 
-                            if (air_compensation)
+                            if (!material_error)
                             {
-                                // Run the local optimizer
-                                ILocalOptimization TheOptimizer = TheSystemCopy.Tools.OpenLocalOptimization();
-                                TheOptimizer.Algorithm = ZOSAPI.Tools.Optimization.OptimizationAlgorithm.DampedLeastSquares;
-                                switch (optimization_cycles)
+                                if (air_compensation)
                                 {
-                                    case 1:
-                                        TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_1_Cycle;
-                                        break;
-                                    case 5:
-                                        TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_5_Cycles;
-                                        break;
-                                    case 10:
-                                        TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_10_Cycles;
-                                        break;
-                                    case 50:
-                                        TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_50_Cycles;
-                                        break;
-                                    default:
-                                        TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Automatic;
-                                        break;
-                                }
-                                TheOptimizer.RunAndWaitForCompletion();
-
-                                // Retrieve the MF value
-                                current_mf = TheOptimizer.CurrentMeritFunction;
-
-                                // Is it a best match?
-                                IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
-
-                                // Lens reversal enabled?
-                                if (reverse)
-                                {
-                                    // Reverse the matched lens
-                                    TheLDECopy.RunTool_ReverseElements(lens_start, lens_start + element_count);
-
-                                    // Re-run the optimizer
+                                    // Run the local optimizer
+                                    ILocalOptimization TheOptimizer = TheSystemCopy.Tools.OpenLocalOptimization();
+                                    TheOptimizer.Algorithm = ZOSAPI.Tools.Optimization.OptimizationAlgorithm.DampedLeastSquares;
+                                    switch (optimization_cycles)
+                                    {
+                                        case 1:
+                                            TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_1_Cycle;
+                                            break;
+                                        case 5:
+                                            TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_5_Cycles;
+                                            break;
+                                        case 10:
+                                            TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_10_Cycles;
+                                            break;
+                                        case 50:
+                                            TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_50_Cycles;
+                                            break;
+                                        default:
+                                            TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Automatic;
+                                            break;
+                                    }
                                     TheOptimizer.RunAndWaitForCompletion();
 
                                     // Retrieve the MF value
                                     current_mf = TheOptimizer.CurrentMeritFunction;
 
                                     // Is it a best match?
-                                    IsBestMatch(best_matches, lens_id, match_id, true, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                    IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+
+                                    // Lens reversal enabled?
+                                    if (reverse)
+                                    {
+                                        // Reverse the matched lens
+                                        TheLDECopy.RunTool_ReverseElements(lens_start, lens_start + element_count);
+
+                                        // Re-run the optimizer
+                                        TheOptimizer.RunAndWaitForCompletion();
+
+                                        // Retrieve the MF value
+                                        current_mf = TheOptimizer.CurrentMeritFunction;
+
+                                        // Is it a best match?
+                                        IsBestMatch(best_matches, lens_id, match_id, true, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                    }
+
+                                    // Close the optimizer
+                                    TheOptimizer.Close();
                                 }
-
-                                // Close the optimizer
-                                TheOptimizer.Close();
-                            }
-                            else
-                            {
-                                // Retrieve the MF value
-                                current_mf = TheSystemCopy.MFE.CalculateMeritFunction();
-
-                                // Is it a best match?
-                                IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
-
-                                // Lens reversal enabled?
-                                if (reverse)
+                                else
                                 {
-                                    // Reverse the matched lens
-                                    TheLDECopy.RunTool_ReverseElements(lens_start, lens_start + element_count);
-
                                     // Retrieve the MF value
                                     current_mf = TheSystemCopy.MFE.CalculateMeritFunction();
 
                                     // Is it a best match?
-                                    IsBestMatch(best_matches, lens_id, match_id, true, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                    IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+
+                                    // Lens reversal enabled?
+                                    if (reverse)
+                                    {
+                                        // Reverse the matched lens
+                                        TheLDECopy.RunTool_ReverseElements(lens_start, lens_start + element_count);
+
+                                        // Retrieve the MF value
+                                        current_mf = TheSystemCopy.MFE.CalculateMeritFunction();
+
+                                        // Is it a best match?
+                                        IsBestMatch(best_matches, lens_id, match_id, true, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                    }
                                 }
                             }
 
@@ -608,7 +653,7 @@ namespace CSharpUserExtensionApplication
                     }
 
                     // Update progress
-                    Console.WriteLine("\tMatched {0} lens(es) for lens {1}.", total_count, lens_id+1);
+                    Console.WriteLine("\tMatched {0} lens(es) for lens {1} (Surface {2} to {3}).", total_count, lens_id+1, lens_start, lens_start+element_count);
                     if (total_count != 0)
                     {
                         for (int ii = 0; ii < matches; ii++)
@@ -634,9 +679,19 @@ namespace CSharpUserExtensionApplication
                     Console.WriteLine();
                 }
 
+                if (material_error)
+                {
+                    Console.WriteLine("> WARNING: One or more match had a Material incompatible with the current wavelengths defined in the system ...");
+                    Console.WriteLine();
+                }
+
                 // If combinations
                 if (combinations)
                 {
+                    // Update progress
+                    Console.WriteLine("> Combining matched lenses ...");
+                    Console.WriteLine();
+
 
                 }
                 else
@@ -661,12 +716,41 @@ namespace CSharpUserExtensionApplication
                 Console.SetOut(oldOut);
                 writer.Close();
                 ostrm.Close();
-
-                System.Threading.Thread.Sleep(5000);
             }
 			
 			// Clean up
             FinishUserExtension(TheApplication);
+        }
+
+        static bool MaterialIsCompatible(IMaterialsCatalog TheMaterialsCatalog, string current_material, double max_wavelength, double min_wavelength)
+        {
+            bool compatible = false;
+            
+            string[] AllCatalogs = TheMaterialsCatalog.GetAllCatalogs();
+            string[] AllMaterials;
+
+            foreach(string Catalog in AllCatalogs)
+            {
+                TheMaterialsCatalog.SelectedCatalog = Catalog;
+
+                // The materials are updated if the catalog is changed, the materials catalog does not need to be Run()
+                AllMaterials = TheMaterialsCatalog.GetAllMaterials();
+
+                if (Array.IndexOf(AllMaterials, current_material) != -1)
+                {
+                    TheMaterialsCatalog.SelectedMaterial = current_material;
+
+                    // Once again, after selecting the material, one has directly access to the max/min wavelengths without running the tool
+                    if (max_wavelength <= TheMaterialsCatalog.MaximumWavelength && min_wavelength >= TheMaterialsCatalog.MinimumWavelength)
+                    {
+                        compatible = true;
+                    }
+
+                    break;
+                }
+            }
+
+            return compatible;
         }
 
         static void IsBestMatch(object[,,] best_matches, int lens_id, int match_id, bool reverse, double mf_value, string lens_name, string vendor)
@@ -676,7 +760,7 @@ namespace CSharpUserExtensionApplication
                 if (mf_value < (double) best_matches[lens_id, ii, 3])
                 {
                     // Offset previous results
-                    for (int jj = 4-ii; jj > 0; jj--)
+                    for (int jj = 4; jj-ii > 1; jj--)
                     {
                         best_matches[lens_id, jj, 1] = best_matches[lens_id, jj-1, 1];
                         best_matches[lens_id, jj, 2] = best_matches[lens_id, jj-1, 2];
