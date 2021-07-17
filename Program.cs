@@ -73,7 +73,7 @@ namespace CSharpUserExtensionApplication
 			if (!TheApplication.TerminateRequested) // This will be 'true' if the user clicks on the Cancel button
             {
                 string current_line, vendors_string, current_material, temporary_progress_message;
-                double focal_length, epd, thickness_after, nominal_mf, current_mf, max_wavelength, min_wavelength, current_wavelength;
+                double focal_length, epd, thickness_after, nominal_mf, current_mf, current_mf_reverse, max_wavelength, min_wavelength, current_wavelength;
                 int match_count, total_count, number_of_wavelengths;
                 List<int> valid_optimization_cycles = new List<int> { 0, 1, 5, 10, 50 };
                 ILensCatalogs TheLensCatalog;
@@ -524,6 +524,9 @@ namespace CSharpUserExtensionApplication
                         // Loop over the matches
                         for (int match_id = 0; match_id < match_count; match_id++)
                         {
+                            // Flag for reverse
+                            current_mf_reverse = double.PositiveInfinity;
+
                             // Check if terminate was pressed
                             if (TheApplication.TerminateRequested)
                             {
@@ -625,9 +628,6 @@ namespace CSharpUserExtensionApplication
                                     // Retrieve the MF value
                                     current_mf = TheOptimizer.CurrentMeritFunction;
 
-                                    // Is it a best match?
-                                    IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
-
                                     // Lens reversal enabled?
                                     if (reverse)
                                     {
@@ -638,10 +638,7 @@ namespace CSharpUserExtensionApplication
                                         TheOptimizer.RunAndWaitForCompletion();
 
                                         // Retrieve the MF value
-                                        current_mf = TheOptimizer.CurrentMeritFunction;
-
-                                        // Is it a best match?
-                                        IsBestMatch(best_matches, lens_id, match_id, true, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                        current_mf_reverse = TheOptimizer.CurrentMeritFunction;
                                     }
 
                                     // Close the optimizer
@@ -652,9 +649,6 @@ namespace CSharpUserExtensionApplication
                                     // Retrieve the MF value
                                     current_mf = TheSystemCopy.MFE.CalculateMeritFunction();
 
-                                    // Is it a best match?
-                                    IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
-
                                     // Lens reversal enabled?
                                     if (reverse)
                                     {
@@ -662,11 +656,19 @@ namespace CSharpUserExtensionApplication
                                         TheLDECopy.RunTool_ReverseElements(lens_start, lens_start + element_count);
 
                                         // Retrieve the MF value
-                                        current_mf = TheSystemCopy.MFE.CalculateMeritFunction();
-
-                                        // Is it a best match?
-                                        IsBestMatch(best_matches, lens_id, match_id, true, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                        current_mf_reverse = TheSystemCopy.MFE.CalculateMeritFunction();
                                     }
+                                }
+
+                                if (current_mf_reverse < current_mf)
+                                {
+                                    // Is it a best match?
+                                    IsBestMatch(best_matches, lens_id, match_id, true, current_mf_reverse, MatchedLens.LensName, MatchedLens.Vendor);
+                                }
+                                else
+                                {
+                                    // Is it a best match?
+                                    IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
                                 }
                             }
 
