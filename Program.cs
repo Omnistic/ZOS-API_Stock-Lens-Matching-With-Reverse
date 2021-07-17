@@ -105,8 +105,10 @@ namespace CSharpUserExtensionApplication
                 string settings_path = Path.Combine(zosapi_folder);
 
                 // Path to text-file log
-                string[] log_folder = { data_directory, "ZOS-API", "Extensions", "Reverse_SLM_log.txt" };
-                string log_path = Path.Combine(log_folder);
+                string file_full_path = TheSystem.SystemFile;
+                string file_directory = Path.GetDirectoryName(file_full_path);
+                string file_name = Path.GetFileNameWithoutExtension(file_full_path);
+                string log_path = Path.Combine(file_directory, file_name + "_SLM_ZOSAPI_LOG.TXT");
 
                 // Output console log to text file (took from https://stackoverflow.com/questions/4470700/how-to-save-console-writeline-output-to-text-file/4470748)
                 FileStream ostrm;
@@ -181,6 +183,20 @@ namespace CSharpUserExtensionApplication
 
                 // Display current settings in console
                 DisplaySettingsOnConsole(settings_path);
+
+                // Create a path for the best combination
+                string best_path;
+                if (save_best)
+                {
+                    best_path = TheSystem.SystemFile;
+                    string directory = Path.GetDirectoryName(best_path);
+                    string best_name = Path.GetFileNameWithoutExtension(best_path);
+                    best_path = Path.Combine(directory, best_name + "_SLM_ZOSAPI.ZMX");
+                }
+                else
+                {
+                    best_path = "";
+                }
 
                 // Update progress
                 TheApplication.ProgressPercent = 5;
@@ -430,6 +446,10 @@ namespace CSharpUserExtensionApplication
                 // Save the system
                 TheSystem.Save();
 
+                // Save the MF
+                string mf_path = Path.Combine(data_directory, "DeleteMe.MF");
+                TheSystem.MFE.SaveMeritFunction(mf_path);
+
                 // Open a copy of the system
                 IOpticalSystem TheSystemCopy = TheSystem.CopySystem();
 
@@ -565,6 +585,9 @@ namespace CSharpUserExtensionApplication
                                 TheMaterialsCatalog.Close();
                             }
 
+                            // Load MF
+                            TheSystemCopy.MFE.LoadMeritFunction(mf_path);
+
                             // Update progress
                             TheApplication.ProgressPercent = 10 + 60 * (lens_id*vendors.Length*match_count + vendor_id*match_count + match_id) / (lens_count*vendors.Length + vendors.Length*match_count + match_count);
                             temporary_progress_message = "Lens " + (lens_id + 1).ToString() + "/" + lens_count.ToString();
@@ -572,7 +595,7 @@ namespace CSharpUserExtensionApplication
                             temporary_progress_message += " | Match " + (match_id + 1).ToString() + "/" + (match_count).ToString();
                             TheApplication.ProgressMessage = temporary_progress_message;
 
-                            if (!material_error)
+                            if (!material_error && !insertion_error)
                             {
                                 if (air_compensation)
                                 {
@@ -692,7 +715,200 @@ namespace CSharpUserExtensionApplication
                     Console.WriteLine("> Combining matched lenses ...");
                     Console.WriteLine();
 
+                    int[] indices_array = new int[lens_count];
+                    int remainder, digit_power;
+                    string vendor;
+                    bool missing_match = false;
 
+                    int[] lenses_id = new int[lens_count];
+                    int[] matches_id = new int[lens_count];
+                    bool[] reverses = new bool[lens_count];
+                    string[] lens_names = new string[lens_count];
+                    string[] vendor_names = new string[lens_count];
+
+                    // Array of best combinations
+                    // Nominal lens | Match ID | Reverse flag | Name | Vendor | MF value (is the +1, all other parameters are <lens_count> times)
+                    int best_parameter_numbers = lens_count * 5 + 1;
+                    object[,] best_combinations = new object[matches, best_parameter_numbers];
+                    for (int ii = 0; ii < matches; ii++)
+                    {
+                        for (int jj = 0; jj < best_parameter_numbers; jj++)
+                        {
+                            switch (jj / lens_count)
+                            {
+                                case 0:
+                                    best_combinations[ii, jj] = -1;
+                                    break;
+                                case 1:
+                                    best_combinations[ii, jj] = -1;
+                                    break;
+                                case 2:
+                                    best_combinations[ii, jj] = false;
+                                    break;
+                                case 3:
+                                    best_combinations[ii, jj] = "";
+                                    break;
+                                case 4:
+                                    best_combinations[ii, jj] = "";
+                                    break;
+                                default:
+                                    best_combinations[ii, jj] = double.PositiveInfinity;
+                                    break;
+                            }
+                        }
+                    }
+
+                    // Count in base "matches" (in base 5, 25 => 100)
+                    for (int ii = 0; ii < (int) Math.Pow(matches, lens_count); ii++)
+                    {
+                        // Update progress
+                        TheApplication.ProgressPercent = 70 + 30 * (ii / (Math.Pow(matches, lens_count) - 1));
+                        TheApplication.ProgressMessage = "Combination " + (ii+1).ToString() + "/" + ((int)Math.Pow(matches, lens_count)).ToString();
+
+                        remainder = ii;
+
+                        // Find indices of the combination in increasing order of lens number
+                        for (int jj = lens_count-1; jj > -1; jj--)
+                        {
+                            digit_power = (int)Math.Pow(matches, jj);
+
+                            if (remainder / (digit_power*matches) > 0)
+                            {
+                                remainder -= (remainder / (digit_power * matches)) * digit_power * matches;
+                            }
+
+                            indices_array[jj] = remainder / digit_power;
+                        }
+
+                        // Create the combination file
+                        TheLensCatalog = TheSystemCopy.Tools.OpenLensCatalogs();
+
+                        for (int lens_id = 0; lens_id < lens_count; lens_id++)
+                        {
+                            // Current lens properties
+                            element_count = (int)lenses[lens_id][0];
+                            lens_start = (int)lenses[lens_id][1];
+                            focal_length = (double)lenses[lens_id][2];
+                            epd = (double)lenses[lens_id][3];
+
+                            // Best match lens properties
+                            vendor = (string) best_matches[lens_id, indices_array[lens_id], 5];
+
+                            if (vendor == "")
+                            {
+                                missing_match = true;
+                                break;
+                            }
+
+                            // Apply catalog settings to retrieve the corresponding best match
+                            ApplyCatalogSettings(TheLensCatalog, element_count, focal_length, epd, efl_tolerance, epd_tolerance, vendor);
+                            TheLensCatalog.RunAndWaitForCompletion();
+
+                            // Retrieve the corresponding matched lens
+                            MatchedLens = TheLensCatalog.GetResult((int)best_matches[lens_id, indices_array[lens_id], 1]);
+
+                            // Save the air thickness before next lens
+                            thickness_after = TheSystemCopy.LDE.GetSurfaceAt(lens_start + element_count).Thickness;
+                            thickness_solve = TheSystemCopy.LDE.GetSurfaceAt(lens_start + element_count).ThicknessCell.GetSolveData();
+
+                            // Remove ideal lens
+                            TheSystemCopy.LDE.RemoveSurfacesAt(lens_start, element_count + 1);
+                            
+                            // Insert matching lens
+                            MatchedLens.InsertLensSeq(lens_start, ignore_object, reverse_geometry);
+
+                            if ((bool) best_matches[lens_id, indices_array[lens_id], 2])
+                            {
+                                // Reverse the matched lens
+                                TheLDECopy.RunTool_ReverseElements(lens_start, lens_start + element_count);
+                            }
+
+                            // Restore thickness
+                            TheSystemCopy.LDE.GetSurfaceAt(lens_start + element_count).Thickness = thickness_after;
+                            TheSystemCopy.LDE.GetSurfaceAt(lens_start + element_count).ThicknessCell.SetSolveData(thickness_solve);
+
+                            // Save combination parameters
+                            lenses_id[lens_id] = lens_id;
+                            matches_id[lens_id] = (int)best_matches[lens_id, indices_array[lens_id], 1];
+                            reverses[lens_id] = (bool)best_matches[lens_id, indices_array[lens_id], 2];
+                            lens_names[lens_id] = MatchedLens.LensName;
+                            vendor_names[lens_id] = MatchedLens.Vendor;
+                        }
+
+                        TheLensCatalog.Close();
+
+                        if (missing_match)
+                        {
+                            continue;
+                        }
+
+                        // Load MF
+                        TheSystemCopy.MFE.LoadMeritFunction(mf_path);
+
+                        if (air_compensation)
+                        {
+                            // Run the local optimizer
+                            ILocalOptimization TheOptimizer = TheSystemCopy.Tools.OpenLocalOptimization();
+                            TheOptimizer.Algorithm = ZOSAPI.Tools.Optimization.OptimizationAlgorithm.DampedLeastSquares;
+                            switch (optimization_cycles)
+                            {
+                                case 1:
+                                    TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_1_Cycle;
+                                    break;
+                                case 5:
+                                    TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_5_Cycles;
+                                    break;
+                                case 10:
+                                    TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_10_Cycles;
+                                    break;
+                                case 50:
+                                    TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Fixed_50_Cycles;
+                                    break;
+                                default:
+                                    TheOptimizer.Cycles = ZOSAPI.Tools.Optimization.OptimizationCycles.Automatic;
+                                    break;
+                            }
+                            TheOptimizer.RunAndWaitForCompletion();
+
+                            // Retrieve the MF value
+                            current_mf = TheOptimizer.CurrentMeritFunction;
+
+                            TheOptimizer.Close();
+                        }
+                        else
+                        {
+                            // Retrieve the MF value
+                            current_mf = TheSystemCopy.MFE.CalculateMeritFunction();
+                        }
+
+                        IsBestCombination(TheSystemCopy, save_best, best_path, best_combinations, lenses_id, matches_id, reverses, lens_names, vendor_names, current_mf); ;
+
+                        // Load the copy of the original system
+                        TheSystemCopy.LoadFile(temporary_path, false);
+                    }
+
+                    for (int ii = 0; ii < matches; ii++)
+                    {
+                        if ((double) best_combinations[ii, best_parameter_numbers-1] != double.PositiveInfinity)
+                        {
+                            Console.Write("\t" + (ii+1).ToString() + ". Merit function = " + best_combinations[ii, best_parameter_numbers - 1] + "\t");
+
+                            for (int jj = 0; jj < lens_count; jj++)
+                            {
+                                Console.Write("<" + best_combinations[ii, jj] + ">");
+                                Console.Write(best_combinations[ii, jj + 3 * lens_count] + "(");
+                                Console.Write(best_combinations[ii, jj + 4 * lens_count] + ") [reversed = ");
+                                Console.Write(best_combinations[ii, jj + 2 * lens_count] + "]");
+
+                                if (jj != lens_count-1)
+                                {
+                                    Console.Write(" + ");
+                                }
+                            }
+
+                            Console.Write("\r\n");
+                        }
+                    }
                 }
                 else
                 {
@@ -711,6 +927,7 @@ namespace CSharpUserExtensionApplication
                 // Delete temporary file
                 File.Delete(temporary_path);
                 File.Delete(temporary_path.Replace(".ZMX", ".ZDA"));
+                File.Delete(mf_path);
 
                 // Restore console status
                 Console.SetOut(oldOut);
@@ -753,14 +970,74 @@ namespace CSharpUserExtensionApplication
             return compatible;
         }
 
+        static void IsBestCombination(IOpticalSystem TheSystemCopy, bool save, string path, object[,] best_combinations, int[] lenses_id, int[] matches_id, bool[] reverses, string[] lens_names, string[] vendor_names, double mf_value)
+        {
+            int mf_index = best_combinations.GetLength(1)-1;
+            int matches = best_combinations.GetLength(0);
+            int parameter_numbers = mf_index + 1;
+            int lens_count = lenses_id.Length;
+
+            for (int ii = 0; ii < matches; ii++)
+            {
+                if (mf_value < (double) best_combinations[ii, mf_index])
+                {
+                    // Save if best
+                    if (ii == 0 && save)
+                    {
+                        TheSystemCopy.SaveAs(path);
+                    }
+
+                    // Offset previous results
+                    for (int jj = matches-1; jj-ii > 0; jj--)
+                    {
+                        // Offset previous results
+                        for (int kk = 0; kk < parameter_numbers; kk++)
+                        {
+                            best_combinations[jj, kk] = best_combinations[jj-1, kk];
+                        }
+                    }
+
+                    // Save new match as best
+                    for (int jj = 0; jj < parameter_numbers; jj++)
+                    {
+                        switch (jj / lens_count)
+                        {
+                            case 0:
+                                best_combinations[ii, jj] = lenses_id[jj];
+                                break;
+                            case 1:
+                                best_combinations[ii, jj] = matches_id[jj - lens_count];
+                                break;
+                            case 2:
+                                best_combinations[ii, jj] = reverses[jj - 2 * lens_count];
+                                break;
+                            case 3:
+                                best_combinations[ii, jj] = lens_names[jj - 3 * lens_count];
+                                break;
+                            case 4:
+                                best_combinations[ii, jj] = vendor_names[jj - 4 * lens_count];
+                                break;
+                            default:
+                                best_combinations[ii, jj] = mf_value;
+                                break;
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+
         static void IsBestMatch(object[,,] best_matches, int lens_id, int match_id, bool reverse, double mf_value, string lens_name, string vendor)
         {
-            for (int ii = 0; ii < best_matches.GetLength(1); ii++)
+            int matches = best_matches.GetLength(1);
+
+            for (int ii = 0; ii < matches; ii++)
             {
                 if (mf_value < (double) best_matches[lens_id, ii, 3])
                 {
                     // Offset previous results
-                    for (int jj = 4; jj-ii > 1; jj--)
+                    for (int jj = matches-1; jj-ii > 0; jj--)
                     {
                         best_matches[lens_id, jj, 1] = best_matches[lens_id, jj-1, 1];
                         best_matches[lens_id, jj, 2] = best_matches[lens_id, jj-1, 2];
