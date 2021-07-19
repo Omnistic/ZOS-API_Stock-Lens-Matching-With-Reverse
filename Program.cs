@@ -473,7 +473,9 @@ namespace CSharpUserExtensionApplication
 
                 // Flag erroneous insertions
                 bool insertion_error = false;
+                bool insertion_error_flag = false;
                 bool material_error = false;
+                bool material_error_flag = false;
 
                 // Array of best matches for each nominal lens
                 object[,,] best_matches = new object[lens_count, matches, 6];
@@ -559,7 +561,7 @@ namespace CSharpUserExtensionApplication
                             // Insert matching lens
                             if (!MatchedLens.InsertLensSeq(lens_start, ignore_object, reverse_geometry))
                             {
-                                insertion_error = true;
+                                insertion_error_flag = true;
                             }
 
                             // Restore thickness
@@ -581,7 +583,7 @@ namespace CSharpUserExtensionApplication
                                 if (!MaterialIsCompatible(TheMaterialsCatalog, current_material, max_wavelength, min_wavelength))
                                 {
                                     total_count--;
-                                    material_error = true;
+                                    material_error_flag = true;
                                 }
 
                                 // Close the material catalog
@@ -598,7 +600,16 @@ namespace CSharpUserExtensionApplication
                             temporary_progress_message += " | Match " + (match_id + 1).ToString() + "/" + (match_count).ToString();
                             TheApplication.ProgressMessage = temporary_progress_message;
 
-                            if (!material_error && !insertion_error)
+                            if (material_error_flag)
+                            {
+                                material_error = true;
+                            }
+                            if (insertion_error_flag)
+                            {
+                                insertion_error = true;
+                            }
+
+                            if (!material_error_flag && !insertion_error_flag)
                             {
                                 if (air_compensation)
                                 {
@@ -672,6 +683,9 @@ namespace CSharpUserExtensionApplication
                                 }
                             }
 
+                            material_error_flag = false;
+                            insertion_error_flag = false;
+
                             // Load the copy of the original system
                             TheSystemCopy.LoadFile(temporary_path, false);
                         }
@@ -685,7 +699,7 @@ namespace CSharpUserExtensionApplication
                         {
                             if ((string) best_matches[lens_id, ii, 4] != "")
                             {
-                                Console.WriteLine("\t  {0}. Merit function = {1}\t{2} ({3})\t\t[reversed = {4}]", ii + 1, best_matches[lens_id, ii, 3], best_matches[lens_id, ii, 4], best_matches[lens_id, ii, 5], best_matches[lens_id, ii, 2]);
+                                Console.WriteLine("\t  {0}. Merit function = {1}\t{2}\t({3})\t\t[reversed = {4}]", ii + 1, best_matches[lens_id, ii, 3], best_matches[lens_id, ii, 4].ToString().PadRight(30), best_matches[lens_id, ii, 5], best_matches[lens_id, ii, 2]);
                             }
                         }
                     }
