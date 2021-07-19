@@ -40,7 +40,7 @@ I don't know yet how to make a settings window in the ZOS-API. Therefore, all th
 * EFL/EPD tolerance = [0.0 - 1.0]: is the +/- tolerance on EFL/EPD for corresponding catalog lenses. For example, if the nominal EFL is 100.0 mm, a tolerance of 0.1 will browse all catalog lenses with an EFL between 90.0, and 110.0 mm (I can't be sure if those exact values are included, those are the values I specify as MinEFL, MaxEFL, MinEPD, and MaxEPD in the lens catalog tool of the ZOS-API). This is not given in % as in OpticStudio. Additionally, I don't know what the nominal EPD is for a given lens in OpticStudio. I have taken it as twice the maximum clear semi-diameter for a given element.
 * Air thickness compensation = [True or False]: if True, optimize the system using the current Merit Function, and only the present variable air thicknesses. Once again, there isn't much error trapping. If you don't have a Merit Function defined, the value of the Merit Function is always 0. The optimizer is DLS, and it uses the default number of core for the user's computer. If False, replace the catalog lenses without optimization.
 * Optimization cycles = [0 or 1 or 5 or 10 or 50]: 0 means the optimizer runs on the automatic number of cycles. 1, 5, 10 or 50 means the optimizer runs for the corresponding number of cycles. It differs from OpticStudio in the sense that the user cannot choose any integer cycles between 0 and 50. This is a limitation of the local optimizer tool in the ZOS-API
-* Save best = [True or False]: if True, saves the best combination to FILENAME_SLM_ZOSAPI.ZMX in the same folder as the lens file
+* Save best = [True or False]: if True, saves the best combination, or match if it is a single element, to FILENAME_SLM_ZOSAPI.ZMX in the same folder as the lens file
 
 Once the settings have been modified, go to OpticStudio and run **Programing..User Extensions..ReverseSLM**.
 
@@ -89,4 +89,8 @@ This is the same example as above but I fixed the singlet clear semi-diameter to
 
 From here on, results start to diverge quite a bit, and I will try to discuss why I think it is.
 
-For this example, running the standard SLM tool gives five EDMUND OPTICS lenses for a best MF value of 0.008729. However, running the ZOS-API SLM tool with Reverse = False returns different vendors, the best being 34-6148 from EALING with a MF value of 0.002316. This is already lower than the standard tool. I don't have an explanation for this, but I have a feeling it could have to do with the definition of EPD for a lens.
+For this example, running the standard SLM tool gives five EDMUND OPTICS lenses for a best MF value of 0.008729. However, running the ZOS-API SLM tool with Reverse = False returns different vendors, the best being 34-6148 from EALING with a MF value of 0.002316. This is already lower than the standard tool. I don't have an explanation for this, but I have a feeling it could have to do with the definition of EPD for a lens. In my case, I used twice the largest clear semi-diameter of the lens to be matched, but proably OpticStudio uses something else. The strange thing is that 34-6148 is marked with an EPD = 11.43 in the lens catalog tool, which is well within tolerances.
+
+If Reverse = True, the ZOS-API tool gives the same results as above because the EALING lens is already in the correct orientation by default.
+
+
