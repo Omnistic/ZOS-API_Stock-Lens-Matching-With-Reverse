@@ -18,12 +18,16 @@ The reason for that is because I think there's a bug in the ZOS-API. When trying
 The user can then choose between Yes, No, and Cancel. This warning is not raised through the ZOS-API, and makes the extension freeze.
 
 ### 1a. Using an executable file
-1. Download the file **Reverse_SLM.exe**
-2. Copy the file **Reverse_SLM.exe** to your **..\Documents\Zemax\ZOS-API\Extensions folder**
+1. Download the files **Reverse_SLM.exe**, and **Reverse_SLM_settings.txt**
+2. Copy the files to your **..\Documents\Zemax\ZOS-API\Extensions folder**
 This might not work for every computer, and future releases of OpticStudio. If this does not work, try installing by compiling the C# file (see 1b.)
 
 ### 1b. By compiling the C# file
-1. Download the file **Program.cs**
+1. Download the file **Program.cs**, and **Reverse_SLM_settings.txt**
 2. Replace the downloaded **Program.cs** file with the one from a C# User Extension template (**Programing..C#..User Extension** in OpticStudio)
 3. Follow the compilation guidelines in [this article](https://my.zemax.com/en-US/Knowledge-Base/kb-article/?ka=KA-01824)
-4. Copy the generated executable to your **..\Documents\Zemax\ZOS-API\Extensions folder**
+4. Copy the generated executable, and the file **Reverse_SLM_settings.txt** to your **..\Documents\Zemax\ZOS-API\Extensions folder**
+
+
+
+## How to use
