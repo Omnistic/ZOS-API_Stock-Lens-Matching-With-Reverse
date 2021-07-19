@@ -532,6 +532,8 @@ namespace CSharpUserExtensionApplication
                             // Check if terminate was pressed
                             if (TheApplication.TerminateRequested)
                             {
+                                Console.WriteLine("> User terminated the analysis before its successful completion");
+                                
                                 FinishUserExtension(TheApplication);
 
                                 // Restore console status
@@ -593,8 +595,8 @@ namespace CSharpUserExtensionApplication
                             // Load MF
                             TheSystemCopy.MFE.LoadMeritFunction(mf_path);
 
-                            // Update progress
-                            TheApplication.ProgressPercent = 10 + 60 * (lens_id*vendors.Length*match_count + vendor_id*match_count + match_id) / (lens_count*vendors.Length + vendors.Length*match_count + match_count);
+                            // Update progress (bar starts at 10, and should stop at 70)
+                            TheApplication.ProgressPercent = 10 + 60 * lens_id / (lens_count - 1.0);
                             temporary_progress_message = "Lens " + (lens_id + 1).ToString() + "/" + lens_count.ToString();
                             temporary_progress_message += " | Vendor " + (vendor_id + 1).ToString() + "/" + (vendors.Length).ToString();
                             temporary_progress_message += " | Match " + (match_id + 1).ToString() + "/" + (match_count).ToString();
@@ -674,12 +676,12 @@ namespace CSharpUserExtensionApplication
                                 if (current_mf_reverse < current_mf)
                                 {
                                     // Is it a best match?
-                                    IsBestMatch(best_matches, lens_id, match_id, true, current_mf_reverse, MatchedLens.LensName, MatchedLens.Vendor);
+                                    IsBestMatch(TheSystemCopy, save_best, best_path, best_matches, lens_id, match_id, true, current_mf_reverse, MatchedLens.LensName, MatchedLens.Vendor);
                                 }
                                 else
                                 {
                                     // Is it a best match?
-                                    IsBestMatch(best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                    IsBestMatch(TheSystemCopy, save_best, best_path, best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
                                 }
                             }
 
@@ -699,7 +701,7 @@ namespace CSharpUserExtensionApplication
                         {
                             if ((string) best_matches[lens_id, ii, 4] != "")
                             {
-                                Console.WriteLine("\t  {0}. Merit function = {1}\t{2}\t({3})\t\t[reversed = {4}]", ii + 1, best_matches[lens_id, ii, 3], best_matches[lens_id, ii, 4].ToString().PadRight(30), best_matches[lens_id, ii, 5], best_matches[lens_id, ii, 2]);
+                                Console.WriteLine("\t  {0}. Merit function = {1}\t{2}\t({3})\t\t[reversed = {4}]", ii + 1, best_matches[lens_id, ii, 3].ToString().PadRight(18), best_matches[lens_id, ii, 4].ToString().PadRight(30), best_matches[lens_id, ii, 5], best_matches[lens_id, ii, 2]);
                             }
                         }
                     }
@@ -725,7 +727,7 @@ namespace CSharpUserExtensionApplication
                 }
 
                 // If combinations
-                if (combinations)
+                if (combinations && lens_count > 1)
                 {
                     // Update progress
                     Console.WriteLine("> Combining matched lenses ...");
@@ -782,6 +784,21 @@ namespace CSharpUserExtensionApplication
                         TheApplication.ProgressMessage = "Combination " + (ii+1).ToString() + "/" + ((int)Math.Pow(matches, lens_count)).ToString();
 
                         remainder = ii;
+
+                        // Check if terminate was pressed
+                        if (TheApplication.TerminateRequested)
+                        {
+                            Console.WriteLine("> User terminated the analysis before its successful completion");
+
+                            FinishUserExtension(TheApplication);
+
+                            // Restore console status
+                            Console.SetOut(oldOut);
+                            writer.Close();
+                            ostrm.Close();
+
+                            return;
+                        }
 
                         // Find indices of the combination in increasing order of lens number
                         for (int jj = lens_count-1; jj > -1; jj--)
@@ -928,10 +945,13 @@ namespace CSharpUserExtensionApplication
                 }
                 else
                 {
+                    if (lens_count != 1 || (lens_count == 1 && (string)best_matches[0, 0, 4] == ""))
+                    {
+                        Console.WriteLine("> WARNING: At least one lens had no match, combinations can't be investigated. Terminating the user-extension ...");
+                    }
+
                     // Clean up
                     FinishUserExtension(TheApplication);
-
-                    Console.WriteLine("> WARNING: At least one lens had no match, combinations can't be investigated. Terminating the user-extension ...");
 
                     // Restore console status
                     Console.SetOut(oldOut);
@@ -1044,7 +1064,7 @@ namespace CSharpUserExtensionApplication
             }
         }
 
-        static void IsBestMatch(object[,,] best_matches, int lens_id, int match_id, bool reverse, double mf_value, string lens_name, string vendor)
+        static void IsBestMatch(IOpticalSystem TheSystemCopy, bool save, string path, object[,,] best_matches, int lens_id, int match_id, bool reverse, double mf_value, string lens_name, string vendor)
         {
             int matches = best_matches.GetLength(1);
 
@@ -1052,6 +1072,12 @@ namespace CSharpUserExtensionApplication
             {
                 if (mf_value < (double) best_matches[lens_id, ii, 3])
                 {
+                    // Save if best
+                    if (ii == 0 && save)
+                    {
+                        TheSystemCopy.SaveAs(path);
+                    }
+
                     // Offset previous results
                     for (int jj = matches-1; jj-ii > 0; jj--)
                     {
@@ -1096,8 +1122,18 @@ namespace CSharpUserExtensionApplication
 
             // EFL
             TheLensCatalog.UseEFL = true;
-            TheLensCatalog.MinEFL = focal_length - focal_length * efl_tolerance;
-            TheLensCatalog.MaxEFL = focal_length + focal_length * efl_tolerance;
+
+            // Check if EFL is positive
+            if (focal_length >= 0)
+            {
+                TheLensCatalog.MinEFL = focal_length - focal_length * efl_tolerance;
+                TheLensCatalog.MaxEFL = focal_length + focal_length * efl_tolerance;
+            }
+            else
+            {
+                TheLensCatalog.MinEFL = focal_length + focal_length * efl_tolerance;
+                TheLensCatalog.MaxEFL = focal_length - focal_length * efl_tolerance;
+            }
 
             // EPD
             TheLensCatalog.UseEPD = true;
