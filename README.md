@@ -6,6 +6,7 @@
 ## Table of content
 1. Installation
 2. How to use
+3. Limitations
 ## 1. Installation
 ### Preparing for installation
 In OpticStudio, go to **Setup..Project Preferences..Message Boxes** and change the default answer to the second message box (Sample Message: Glass GLASSNAME could not be found ...), and click Ok.
@@ -28,7 +29,7 @@ This might not work for every computer, and future releases of OpticStudio. If t
 3. Follow the compilation guidelines in [this article](https://my.zemax.com/en-US/Knowledge-Base/kb-article/?ka=KA-01824)
 4. Copy the generated executable, and the file **Reverse_SLM_settings.txt** to your **..\Documents\Zemax\ZOS-API\Extensions folder**
 
-## How to use
+## 2. How to use
 I don't know yet how to make a settings window in the ZOS-API. Therefore, all the settings are in the file **Reverse_SLM_settings.txt**. There is nearly no error trapping, try to remember this when editing this settings file. Below the list of available settings, their range of values, and what their purpose is.
 
 ### Settings
@@ -44,3 +45,5 @@ I don't know yet how to make a settings window in the ZOS-API. Therefore, all th
 Once the settings have been modified, go to OpticStudio and run **Programing..User Extensions..ReverseSLM**.
 
 The results are saved in a file FILENAME_SLM_ZOSAPI_LOG.TXT in the same folder as the lens file.
+
+## 3. Limitations
