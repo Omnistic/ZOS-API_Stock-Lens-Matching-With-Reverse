@@ -1,0 +1,9 @@
+Reverse = True
+Variable = False
+Vendors = ALL
+Matches = 5
+EFL tolerance = 0.25
+EPD tolerance = 0.25
+Air thickness compensation = False
+Optimization cycles = 0
+Save best = False
