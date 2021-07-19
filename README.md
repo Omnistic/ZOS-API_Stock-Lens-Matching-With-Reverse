@@ -99,7 +99,7 @@ For this example, running the standard SLM tool gives five EDMUND OPTICS lenses 
 If Reverse = True, the ZOS-API tool gives the same results as above because the EALING lens is already in the correct orientation by default.
 
 ### Petzval0.zmx
-This is the last example and it is taken from the sample file of nearly same name (without the 0). It is a lens composed of three cemented doublets. The last surface has a Marginal Ray Height solve. I used the following settings for both tools without air thickness compensation, except I allowed the Reverse = True for the ZOS-API:
+This is the last example and it is taken from the sample file of nearly same name (without the 0). It is a lens composed of two cemented doublets and a singlet. The last surface has a Marginal Ray Height solve. I used the following settings for both tools without air thickness compensation, except I allowed the Reverse = True for the ZOS-API:
 
 >Surfaces            : All  
 >Vendors             : All  
