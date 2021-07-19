@@ -46,7 +46,12 @@ Once the settings have been modified, go to OpticStudio and run **Programing..Us
 
 The results are saved in a file FILENAME_SLM_ZOSAPI_LOG.TXT in the same folder as the lens file.
 
-## 3. Examples and limitations
+## 3. Limitations
+1. The maximum number of cemented elements that can currently be matched is three. The whole code is made such that it can handle quadruplets, and up to N elements really, but I only tested with doublets because there aren't many triplets, let alone quadruplets...
+2. The maximum number of lenses that can be matched in a single file is 255 although I never tried with that many (it will take a significant amount of time)
+3. I did not come across this issue in my testing, but I've seen it happen with the standard lens matching tool. An error can occur in the standard LSM tool where after a lens is inserted, the system fail to compute its MF value. If such an error occurs in the ZOS-API, I suspect it will behave like the glass catalog warning, and make the application freeze
+
+## 4. Examples
 In the following section, I'd like to present a series of examples and how they behave with the standard SLM, and the ZOS-API SLM tool.
 ### PlanoConvexSinglet0.zmx
 This is the first example. It consists of a single plano-convex lens with automatic clear semi-diameter (system EPD = 5.0 mm).
@@ -89,8 +94,20 @@ This is the same example as above but I fixed the singlet clear semi-diameter to
 
 From here on, results start to diverge quite a bit, and I will try to discuss why I think it is.
 
-For this example, running the standard SLM tool gives five EDMUND OPTICS lenses for a best MF value of 0.008729. However, running the ZOS-API SLM tool with Reverse = False returns different vendors, the best being 34-6148 from EALING with a MF value of 0.002316. This is already lower than the standard tool. I don't have an explanation for this, but I have a feeling it could have to do with the definition of EPD for a lens. In my case, I used twice the largest clear semi-diameter of the lens to be matched, but proably OpticStudio uses something else. The strange thing is that 34-6148 is marked with an EPD = 11.43 in the lens catalog tool, which is well within tolerances.
+For this example, running the standard SLM tool gives five EDMUND OPTICS lenses for a best MF value of 0.008729. However, running the ZOS-API SLM tool with Reverse = False returns different vendors, the best being 34-6148 from EALING with a MF value of 0.002316. This is already lower than the standard tool. I don't have an explanation for this, but I have a feeling it could have to do with the definition of EPD for a lens. In my case, I used twice the largest clear semi-diameter of the lens to be matched, but proably OpticStudio uses something else. The strange thing is that 34-6148 is marked with an EPD = 11.43 (I don't know how this is calculated, or specified by the vendor) in the lens catalog tool, which is well within tolerances, and a clear semi-diameter of 6.35 (clear diameter = 12.7 mm).
 
 If Reverse = True, the ZOS-API tool gives the same results as above because the EALING lens is already in the correct orientation by default.
 
+### Petzval0.zmx
+This is the last example and it is taken from the sample file of nearly same name (without the 0). It is a lens composed of three cemented doublets. The last surface has a Marginal Ray Height solve. I used the following settings for both tools without air thickness compensation, except I allowed the Reverse = True for the ZOS-API:
 
+>Surfaces            : All  
+>Vendors             : All  
+>Show Matches        : 5  
+>EFL Tolerance (%)   : 25  
+>EPD Tolerance (%)   : 25  
+>Nominal Criterion   : 0.830261
+
+The best standard combination is 43.476728, and the ZOS-API one is 24.499980.
+
+I sanity checked the best result of the ZOS-API to see if it made sense, and it seems to be ok in my opinion. I have attached this particular file (Petzval0_SLM_ZOSAPI.ZMX) with the sample files.
