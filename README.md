@@ -6,7 +6,7 @@
 ## Table of content
 1. Installation
 2. How to use
-3. Limitations
+3. Examples
 ## 1. Installation
 ### Preparing for installation
 In OpticStudio, go to **Setup..Project Preferences..Message Boxes** and change the default answer to the second message box (Sample Message: Glass GLASSNAME could not be found ...), and click Ok.
@@ -46,4 +46,4 @@ Once the settings have been modified, go to OpticStudio and run **Programing..Us
 
 The results are saved in a file FILENAME_SLM_ZOSAPI_LOG.TXT in the same folder as the lens file.
 
-## 3. Limitations
+## 3. Examples
