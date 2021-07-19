@@ -6,7 +6,7 @@
 ## Table of content
 1. Installation
 2. How to use
-3. Examples
+3. Examples and limitations
 ## 1. Installation
 ### Preparing for installation
 In OpticStudio, go to **Setup..Project Preferences..Message Boxes** and change the default answer to the second message box (Sample Message: Glass GLASSNAME could not be found ...), and click Ok.
@@ -46,4 +46,47 @@ Once the settings have been modified, go to OpticStudio and run **Programing..Us
 
 The results are saved in a file FILENAME_SLM_ZOSAPI_LOG.TXT in the same folder as the lens file.
 
-## 3. Examples
+## 3. Examples and limitations
+In the following section, I'd like to present a series of examples and how they behave with the standard SLM, and the ZOS-API SLM tool.
+### PlanoConvexSinglet0.zmx
+This is the first example. It consists of a single plano-convex lens with automatic clear semi-diameter (system EPD = 5.0 mm).
+
+When run without compensation and the following settings (Reverse = False):
+
+>Surfaces            : All  
+>Vendors             : All  
+>Show Matches        : 5  
+>EFL Tolerance (%)   : 10  
+>EPD Tolerance (%)   : 20  
+>Nominal Criterion   : 0.000174
+
+Both tools return the same matches:
+
+| Component 1 (Surfaces 2-3) | MF Value | MF Change |
+| --- | --- | --- |
+| L-PCX052 (ROSS OPTICAL) | 0.029544 | 0.029370 |
+| L-PCX046 (ROSS OPTICAL) | 0.030288 | 0.030114 |
+| KPX034 (NEWPORT CORP) | 0.030344 | 0.030170 |
+
+Which are all plano-convex singlets in the same orientation as the nominal lens.
+
+However, if one uses the ZOS-API tool with Reverse = True, the results become:
+
+| Component 1 (Surfaces 2-3) | MF Value |
+| --- | --- |
+| KPX034 (NEWPORT CORP) | 0.006475 |
+| L-PCX046 (ROSS OPTICAL) | 0.006485 |
+| L-PCX052 (ROSS OPTICAL) | 0.006485 |
+
+While it might surprise the reader that having the plano-surface to the INFINITY side gives a lower MF value, we would like to emphasize that this design uses a single wavelength, and a single on-axis field with a limited availability of lenses due to the automatic clear semi-diameter. In this very particular case, it seems preferable to have the lens oriented this way.
+
+This goes on to show that there are better solutions when both orientations of a lens are investigated.
+
+If one turns the air compensation On for an automatic number of cycles, the results remain exact between the two tools.
+
+### PlanoConvexSinglet1.zmx
+This is the same example as above but I fixed the singlet clear semi-diameter to 6 mm to have a greater number of matches. I used the same settings as above, with air compensation.
+
+From here on, results start to diverge quite a bit, and I will try to discuss why I think it is.
+
+For this example, running the standard SLM tool gives five EDMUND OPTICS lenses for a best MF value of 0.008729. However, running the ZOS-API SLM tool with Reverse = False returns different vendors, the best being 34-6148 from EALING with a MF value of 0.002316. This is already lower than the standard tool. I don't have an explanation for this, but I have a feeling it could have to do with the definition of EPD for a lens.
