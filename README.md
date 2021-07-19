@@ -28,6 +28,19 @@ This might not work for every computer, and future releases of OpticStudio. If t
 3. Follow the compilation guidelines in [this article](https://my.zemax.com/en-US/Knowledge-Base/kb-article/?ka=KA-01824)
 4. Copy the generated executable, and the file **Reverse_SLM_settings.txt** to your **..\Documents\Zemax\ZOS-API\Extensions folder**
 
-
-
 ## How to use
+I don't know yet how to make a settings window in the ZOS-API. Therefore, all the settings are in the file **Reverse_SLM_settings.txt**. There is nearly no error trapping, try to remember this when editing this settings file. Below the list of available settings, their range of values, and what their purpose is.
+
+### Settings
+* Reverse = [True or False]: if True, try both orientation of a catalog lens for matching (keep the best orientation only). If False, only the default orientation is used
+* Variable = [True or False]: if True, only lenses with at least one variable radius are matched, the others are ignored. If False, all valid lenses are matched
+* Vendors = [ALL or VENDOR1, VENDOR2, ...]: only uses catalog lenses from the specified vendors (watch out for spelling mistakes...). ALL means all vendors
+* Matches = [UNSIGNED INTEGER]: the number of best matches to display for each lens, and each combination (if it applies)
+* EFL/EPD tolerance = [0.0 - 1.0]: is the +/- tolerance on EFL/EPD for corresponding catalog lenses. For example, if the nominal EFL is 100.0 mm, a tolerance of 0.1 will browse all catalog lenses with an EFL between 90.0, and 110.0 mm (I can't be sure if those exact values are included, those are the values I specify as MinEFL, MaxEFL, MinEPD, and MaxEPD in the lens catalog tool of the ZOS-API). This is not given in % as in OpticStudio
+* Air thickness compensation = [True or False]: if True, optimize the system using the current Merit Function, and only the present variable air thicknesses. Once again, there isn't much error trapping. If you don't have a Merit Function defined, the value of the Merit Function is always 0. The optimizer is DLS, and it uses the default number of core for the user's computer. If False, replace the catalog lenses without optimization.
+* Optimization cycles = [0 or 1 or 5 or 10 or 50]: 0 means the optimizer runs on the automatic number of cycles. 1, 5, 10 or 50 means the optimizer runs for the corresponding number of cycles. It differs from OpticStudio in the sense that the user cannot choose any integer cycles between 0 and 50. This is a limitation of the local optimizer tool in the ZOS-API
+* Save best = [True or False]: if True, saves the best combination to FILENAME_SLM_ZOSAPI.ZMX in the same folder as the lens file
+
+Once the settings have been modified, go to OpticStudio and run **Programing..User Extensions..ReverseSLM**.
+
+The results are saved in a file FILENAME_SLM_ZOSAPI_LOG.TXT in the same folder as the lens file.
