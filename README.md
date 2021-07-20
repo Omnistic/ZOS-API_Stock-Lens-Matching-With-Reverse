@@ -9,7 +9,9 @@ As of OpticStudio 21.2.1, the native Stock Lens Matching (SLM) tool seem to only
 ## Table of content
 1. Installation
 2. How to use
-3. Examples and limitations
+3. Limitations  
+4. Examples
+
 ## 1. Installation
 ### Preparing for installation
 In OpticStudio, go to **Setup..Project Preferences..Message Boxes** and change the default answer to the second message box (Sample Message: Glass GLASSNAME could not be found ...), and click Ok.
