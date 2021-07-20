@@ -3,6 +3,9 @@
 * Developed for OpticStudio (ZEMAX) 21.2.1
 * Programing language C#
 * User-extension
+## Description
+As of OpticStudio 21.2.1, the native Stock Lens Matching (SLM) tool seem to only replace catalog lenses in a single orientation. This ZOS-API implementation of the SLM is an attempt to alleviate this issue. The tool is slower, but can test each match against its different orientations. So far, the results are a little bit different from the native SLM tool, even without the resverse element component into it. Direct result comparison is therefore impractical, but I hope to get some feedback from other users to evaluate this custom tool.
+
 ## Table of content
 1. Installation
 2. How to use
