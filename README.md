@@ -1,5 +1,5 @@
 # ZOS-API Implementation of the Stock Lens Matching tool
-* Current version 0.8a
+* Current version 0.8b
 * Developed for OpticStudio (ZEMAX) 21.2.1
 * Programing language C#
 * User-extension
@@ -54,7 +54,7 @@ The results are saved in a file FILENAME_SLM_ZOSAPI_LOG.TXT in the same folder a
 ## 3. Limitations
 1. The maximum number of cemented elements that can currently be matched is three. The whole code is made such that it can handle quadruplets, and up to N elements really, but I only tested with doublets because there aren't many triplets, let alone quadruplets...
 2. The maximum number of lenses that can be matched in a single file is 255 although I never tried with that many (it will take a significant amount of time)
-3. I did not come across this issue in my testing, but I've seen it happen with the standard lens matching tool. An error can occur in the standard LSM tool where after a lens is inserted, the system fail to compute its MF value. If such an error occurs in the ZOS-API, I suspect it will behave like the glass catalog warning, and make the application freeze
+3. I did not come across this issue in my testing, but I've seen it happen with the standard lens matching tool. An error can occur in the standard LSM tool where after a lens is inserted, the system fail to compute its MF value. If such an error occurs in the ZOS-API, I suspect it will behave like the glass catalog warning, and make the application freeze. **Update 2021/09/15:** This was false, when this happens, the returned MF value is simply zero, and no errors are thrown, and the application doesn't freeze. To account for those rather frequent cases, I'm ignoring the matched lenses that give a MF value of zero. It also means that if a matched lens would legitimately give a MF value of zero, it is ignored, but I think it is highly unlikely. 
 4. I did not characterized it yet, but the speed of this tool is significantly slower than the native SLM tool
 
 ## 4. Examples
