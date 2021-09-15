@@ -318,6 +318,7 @@ namespace CSharpUserExtensionApplication
                                     // Update counter
                                     element_count = 0;
                                     skipped = true;
+                                    has_variable = false;
                                     continue;
                                 }
 
@@ -345,6 +346,7 @@ namespace CSharpUserExtensionApplication
                                 // Update counters
                                 element_count = 0;
                                 lens_count++;
+                                has_variable = false;
                             }
                             // Is it a new element of the lens (I'm not exactly sure how to treat two consecutive
                             // surfaces with the same material yet), that is not a mirror?
@@ -476,6 +478,7 @@ namespace CSharpUserExtensionApplication
                 bool insertion_error_flag = false;
                 bool material_error = false;
                 bool material_error_flag = false;
+                bool mf_error_flag = false;
 
                 // Array of best matches for each nominal lens
                 object[,,] best_matches = new object[lens_count, matches, 6];
@@ -672,16 +675,25 @@ namespace CSharpUserExtensionApplication
                                         current_mf_reverse = TheSystemCopy.MFE.CalculateMeritFunction();
                                     }
                                 }
-
-                                if (current_mf_reverse < current_mf)
+                                // I will assume that if the MF value is zero, it is because there has been an error when calculating the MF
+                                // because of this particular lens. It means that is a perfect solution with a MF value of zero will be ignored
+                                // as well. But I think it is unlikely with stock lenses anyway
+                                if (current_mf == 0)
                                 {
-                                    // Is it a best match?
-                                    IsBestMatch(TheSystemCopy, save_best, best_path, best_matches, lens_id, match_id, true, current_mf_reverse, MatchedLens.LensName, MatchedLens.Vendor);
+                                    mf_error_flag = true;
                                 }
                                 else
                                 {
-                                    // Is it a best match?
-                                    IsBestMatch(TheSystemCopy, save_best, best_path, best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                    if (current_mf_reverse < current_mf)
+                                    {
+                                        // Is it a best match?
+                                        IsBestMatch(TheSystemCopy, save_best, best_path, best_matches, lens_id, match_id, true, current_mf_reverse, MatchedLens.LensName, MatchedLens.Vendor);
+                                    }
+                                    else
+                                    {
+                                        // Is it a best match?
+                                        IsBestMatch(TheSystemCopy, save_best, best_path, best_matches, lens_id, match_id, false, current_mf, MatchedLens.LensName, MatchedLens.Vendor);
+                                    }
                                 }
                             }
 
@@ -723,6 +735,12 @@ namespace CSharpUserExtensionApplication
                 if (material_error)
                 {
                     Console.WriteLine("> WARNING: One or more match had a Material incompatible with the current wavelengths defined in the system ...");
+                    Console.WriteLine();
+                }
+
+                if (mf_error_flag)
+                {
+                    Console.WriteLine("> WARNING: The Merit Function could not be evaluated for one or more match ...");
                     Console.WriteLine();
                 }
 
