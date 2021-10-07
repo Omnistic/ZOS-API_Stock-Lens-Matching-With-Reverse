@@ -31,7 +31,7 @@ This might not work for every computer, and future releases of OpticStudio. If t
 ### 1b. By compiling the C# file
 1. Download the file **Program.cs**, and **Reverse_SLM_settings.txt**
 2. Replace the downloaded **Program.cs** file with the one from a C# User Extension template (**Programing..C#..User Extension** in OpticStudio)
-3. Follow the compilation guidelines in [this article](https://my.zemax.com/en-US/Knowledge-Base/kb-article/?ka=KA-01824)
+3. Follow the compilation guidelines in [this article](https://support.zemax.com/hc/en-us/articles/1500005489981-How-to-create-a-ZOS-API-User-Extension-to-convert-from-Chebyshev-to-Extended-polynomial)
 4. Copy the generated executable, and the file **Reverse_SLM_settings.txt** to your **..\Documents\Zemax\ZOS-API\Extensions folder**
 
 ## 2. How to use
